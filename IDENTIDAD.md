@@ -6,11 +6,11 @@
 >
 > Completa **todos** los campos. El código del examen ya viene escrito: no lo cambies.
 
-- **Nombre completo:**
-- **Cédula:**
-- **NRC:**
-- **Código del examen:** `AGSK-2026`
-- **Fecha y hora de inicio:**      <!-- formato: 2026-XX-XX HH:MM -->
+* **Nombre completo:** HUGO EDUARDO MONTACHANA SIZA
+* **Cédula:** 1803205309
+* **NRC:** 30405
+* **Código del examen:** `AGSK-2026`
+* **Fecha y hora de inicio:** 2026-07-30 20:22
 
 ---
 
@@ -19,23 +19,23 @@
 Sean `NN` los **dos últimos dígitos** de mi cédula. No hay cálculos: se copian dígitos y
 se busca en una tabla.
 
-| # | Parámetro | Cómo se obtiene | Mi valor |
-|:---:|-----------|-----------------|----------|
-| — | `NN` | los 2 últimos dígitos de mi cédula | |
-| 1 | Nombre de la tabla | `tbl_productos_base_` + `NN` | |
-| 2 | Puerto | `81` + `NN` | |
-| 3 | Categoría | según el **último dígito** (tabla de abajo) | |
-| — | Audiencia para el prompt de IA | según la categoría | |
+|  #  | Parámetro                      | Cómo se obtiene                             | Mi valor                          |
+| :-: | ------------------------------ | ------------------------------------------- | --------------------------------- |
+|  —  | `NN`                           | los 2 últimos dígitos de mi cédula          | `09`                              |
+|  1  | Nombre de la tabla             | `tbl_productos_base_` + `NN`                | `tbl_productos_base_09`           |
+|  2  | Puerto                         | `81` + `NN`                                 | `8109`                            |
+|  3  | Categoría                      | según el **último dígito** (tabla de abajo) | Quinua                            |
+|  —  | Audiencia para el prompt de IA | según la categoría                          | tiendas de alimentación saludable |
 
 **Tabla de categorías:**
 
-| Cédula termina en | Categoría | Audiencia |
-|:---:|-----------|-----------|
-| 0 o 1 | Cacao | exportadores europeos |
-| 2 o 3 | Café | cafeterías de especialidad |
-| 4 o 5 | Banano | supermercados mayoristas |
-| 6 o 7 | Flores | floristerías premium |
-| 8 o 9 | Quinua | tiendas de alimentación saludable |
+| Cédula termina en | Categoría | Audiencia                         |
+| :---------------: | --------- | --------------------------------- |
+|       0 o 1       | Cacao     | exportadores europeos             |
+|       2 o 3       | Café      | cafeterías de especialidad        |
+|       4 o 5       | Banano    | supermercados mayoristas          |
+|       6 o 7       | Flores    | floristerías premium              |
+|       8 o 9       | Quinua    | tiendas de alimentación saludable |
 
 > ✅ **Autocomprobación:** mi puerto empieza por `81` y termina con los mismos dos
 > dígitos que el nombre de mi tabla.
@@ -52,10 +52,10 @@ se busca en una tabla.
 > incógnito antes de cerrar la entrega — si no abre sin tu sesión iniciada, equivale a no
 > haberlo entregado y C8 se califica en nivel 1.
 
-- **Enlace al video (5 min, cámara + pantalla):**
-- **Plataforma:**                  <!-- Drive institucional / OneDrive / YouTube no listado -->
-- **Acceso verificado en incógnito:**   ☐ Sí
-- **Duración real:**
+* **Enlace al video (5 min, cámara + pantalla):**
+* **Plataforma:**
+* **Acceso verificado en incógnito:** ☐ Sí
+* **Duración real:**
 
 ---
 
@@ -65,4 +65,4 @@ Declaro que este repositorio es de mi autoría individual, que sustentaré oralm
 decisión de diseño que contiene, y que el historial de commits refleja fielmente el
 proceso de desarrollo que realicé.
 
-**Firma (nombre completo):**
+**Firma (nombre completo):** HUGO EDUARDO MONTACHANA SIZA
