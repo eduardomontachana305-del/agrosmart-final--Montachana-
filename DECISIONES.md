@@ -1,4 +1,4 @@
-# 🧭 DECISIONES.md — Bitácora de diseño
+﻿# 🧭 DECISIONES.md — Bitácora de diseño
 
 > **Instrucciones.** Completa **una entrada por fase**, en **primera persona** y
 > **refiriéndote a tu propio código**: nombres reales de tus clases, tu tabla, tus
@@ -28,23 +28,24 @@
 
 **1.1** ¿Qué archivo activa el perfil `prod` y qué línea exacta lo hace?
 
->
+> Activé el perfil `prod` en el archivo `src/main/resources/application.properties` mediante la línea exacta `spring.profiles.active=prod`.
 
 **1.2** Pega la línea del log de arranque donde se ve tu puerto y el perfil activo.
 
 ```
-
+2026-07-31T00:44:37.267-05:00  INFO 6944 --- [agrosmart] [           main] e.e.espe.agrosmart.AgrosmartApplication : The following 1 profile is active: "prod"
+2026-07-31T00:44:48.989-05:00  INFO 6944 --- [agrosmart] [           main] o.s.b.web.embedded.netty.NettyWebServer : Netty started on port 8109 (http)
 ```
 
 **1.3** ¿Qué habría pasado si dejabas `ddl-auto=create-drop` en lugar de `update`?
 Responde pensando en tus datos sembrados.
 
->
+> Si hubiera dejado `ddl-auto=create-drop`, Hibernate eliminaría la tabla al cerrar la aplicación. Después de sembrar mis cinco productos de Quinua —tres válidos y dos inválidos—, esos registros se perderían al detener el proyecto y tendrían que insertarse nuevamente en el siguiente arranque. Con `update`, la tabla y sus datos se conservan.
 
 **1.4** ¿Levantaste PostgreSQL con `compose.yaml` (Opción A) o con una instalación local
 (Opción B)? ¿Qué ventaja tiene la que elegiste?
 
->
+> Utilicé PostgreSQL instalado localmente, correspondiente a la Opción B. Creé la base de datos `agrosmart_db` y configuré la conexión en `application-prod.properties`. La ventaja para mi entorno es que la aplicación puede conectarse directamente al servidor PostgreSQL local sin depender de Docker Desktop.
 
 ---
 
@@ -234,3 +235,8 @@ esa y no otra?
 puntaje**; su omisión o falsedad sí constituye falta de honestidad académica.
 
 >
+
+
+
+
+
