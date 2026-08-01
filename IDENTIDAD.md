@@ -70,4 +70,4 @@ proceso de desarrollo que realicé.
 
 Evidencia de ejecución y explicación técnica del proyecto:
 
-[Ver video de presentación](https://drive.google.com/drive/folders/1mTN0OJFShn8rQZCaP-Ut30M4vFmc37NT?usp=sharing)
+(https://drive.google.com/drive/folders/1mTN0OJFShn8rQZCaP-Ut30M4vFmc37NT?usp=sharing)
