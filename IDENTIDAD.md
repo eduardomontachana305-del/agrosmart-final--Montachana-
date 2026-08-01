@@ -66,3 +66,8 @@ decisión de diseño que contiene, y que el historial de commits refleja fielmen
 proceso de desarrollo que realicé.
 
 **Firma (nombre completo):** HUGO EDUARDO MONTACHANA SIZA
+## Video de presentación
+
+Evidencia de ejecución y explicación técnica del proyecto:
+
+[Ver video de presentación](https://drive.google.com/drive/folders/1mTN0OJFShn8rQZCaP-Ut30M4vFmc37NT?usp=sharing)
