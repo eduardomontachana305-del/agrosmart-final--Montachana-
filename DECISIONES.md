@@ -180,164 +180,207 @@ lo fuera? (piensa en la restricción `unique` de `nombre_producto`)
 
 ---
 
-## Fase 3 — Modelo inmutable y lógica funcional
+##Fase 3 — Modelo inmutable y lógica funcional
+3.1 ¿Por qué tienes dos clases (ProductoEntity y Producto) en lugar de una? ¿Qué te impide hacer inmutable directamente la entidad de Hibernate?
 
-**3.1** ¿Por qué tienes **dos** clases (`ProductoEntity` y `Producto`) en lugar de una?
-¿Qué te impide hacer inmutable directamente la entidad de Hibernate?
+Utilicé dos clases porque ProductoEntity representa la estructura de persistencia administrada por JPA/Hibernate y Producto representa el modelo de dominio inmutable que utiliza la lógica de negocio.
 
->
+No hice inmutable directamente ProductoEntity porque Hibernate necesita modificar internamente los campos de la entidad durante el ciclo de vida de persistencia, por ejemplo al asignar el identificador generado y realizar el mapeo con la base de datos. Por eso mantuve la entidad mutable y separé la clase Producto como un objeto inmutable con atributos final.
 
-**3.2** Escribe el código exacto de **tus dos** copias defensivas e indica en qué línea
-está cada una.
+**3.2** Escribe el código exacto de tus dos copias defensivas e indica en qué línea está cada una.
+// Producto.java línea 27-28
+this.correosNotificacion =
+        new ArrayList<>(correosNotificacion);
 
-```java
 
-```
+// Producto.java línea 47-50
+public List<String> getCorreosNotificacion() {
+    return Collections.unmodifiableList(
+            new ArrayList<>(correosNotificacion)
+    );
+}
 
-**3.3** ¿Por qué la copia defensiva **solo en el getter** no sería suficiente? Describe
-el ataque concreto que quedaría abierto sobre **tu** clase.
+La primera copia defensiva está en el constructor y evita que la lista original enviada desde afuera pueda modificar el estado interno del objeto. La segunda copia está en el getter y evita que un usuario pueda modificar directamente la lista interna mediante la referencia retornada.
 
->
+**3.3** ¿Por qué la copia defensiva solo en el getter no sería suficiente? Describe el ataque concreto que quedaría abierto sobre tu clase.
 
-**3.4** ¿Cómo implementaste `A_MAYUSCULAS` para no mutar el `Producto` recibido?
+La copia defensiva solamente en el getter no sería suficiente porque el problema también existe al momento de construir el objeto. Un atacante podría crear una lista externa de correos, enviarla al constructor y después modificar esa misma lista.
 
-```java
+Por ejemplo, si la lista original contiene "compras@tienda.com" y después se ejecuta lista.add("correo@malicioso.com"), el objeto Producto podría cambiar internamente si no hubiera realizado una copia defensiva en el constructor.
 
-```
+**3.4** ¿Cómo implementaste A_MAYUSCULAS para no mutar el Producto recibido?
+public static final Function<Producto, Producto> A_MAYUSCULAS = producto ->
+        new Producto(
+                producto.getId(),
+                producto.getNombre().toUpperCase(Locale.ROOT),
+                producto.getCategoria(),
+                producto.getPrecioUsd(),
+                producto.getCorreosNotificacion()
+        );
 
----
+Implementé A_MAYUSCULAS creando un nuevo objeto Producto con el nombre convertido a mayúsculas. No modifico el objeto recibido porque sus atributos son inmutables y retorno una nueva instancia.
 
-## Fase 4 — Servicio reactivo y aislamiento del bloqueo
+##Fase 4 — Servicio reactivo y aislamiento del bloqueo
+**4.1** Pega tu método obtenerProductosComercializables() completo.
+public Flux<Producto> obtenerProductosComercializables() {
 
-**4.1** Pega tu método `obtenerProductosComercializables()` completo.
+    return Mono.fromCallable(repository::findAll)
+            .subscribeOn(Schedulers.boundedElastic())
+            .flatMapMany(Flux::fromIterable)
+            .map(ProductoMapper::toDominio);
+}
+**4.2** ¿Qué pasa exactamente si eliminas .subscribeOn(Schedulers.boundedElastic())?
 
-```java
+Si elimino subscribeOn(Schedulers.boundedElastic()), la llamada bloqueante repository.findAll() de JPA/Hibernate se ejecutaría en el hilo que atiende la petición HTTP de Netty. Esto bloquearía el event loop reactor-http-nio, reduciendo la capacidad reactiva de la aplicación.
 
-```
+Con boundedElastic, la operación JDBC se ejecuta en un hilo preparado para operaciones bloqueantes y no bloquea el hilo principal de WebFlux.
 
-**4.2** ¿Qué pasa **exactamente** si eliminas
-`.subscribeOn(Schedulers.boundedElastic())` de ese método? Si lo probaste, indica qué
-hilo aparecía en el log antes y después.
+**4.3** ¿Por qué Mono.fromCallable(...) y no Mono.just(repository.findAll())?
 
->
+Utilicé Mono.fromCallable(...) porque la ejecución de repository.findAll() ocurre cuando el flujo es suscrito. Esto permite enviarla al scheduler boundedElastic.
 
-**4.3** ¿Por qué `Mono.fromCallable(...)` y no `Mono.just(repository.findAll())`?
-(pista: cuándo se ejecuta cada uno)
+Si hubiera usado Mono.just(repository.findAll()), la consulta se ejecutaría inmediatamente antes de crear el flujo reactivo, bloqueando el hilo actual y perdiendo el aislamiento del bloqueo.
 
->
+**4.4** En tu código, ¿dónde usaste defaultIfEmpty y dónde switchIfEmpty?
 
-**4.4** En **tu** código, ¿dónde usaste `defaultIfEmpty` y dónde `switchIfEmpty`, y por
-qué no son intercambiables en esos dos lugares?
+En mi implementación utilicé defaultIfEmpty en el controlador cuando necesito transformar un resultado vacío en una respuesta alternativa como 404 Not Found.
 
->
+switchIfEmpty no lo utilicé en esta fase porque no necesitaba reemplazar un flujo vacío por otro flujo alternativo. No son intercambiables porque defaultIfEmpty devuelve un valor cuando no existe elemento, mientras que switchIfEmpty cambia completamente la fuente del flujo.
 
-**4.5** ¿Por qué `doOnNext` no sirve para transformar el elemento, si aparentemente
-"recibe" el producto?
+**4.5** ¿Por qué doOnNext no sirve para transformar el elemento?
 
->
+doOnNext solamente ejecuta una acción secundaria sobre el elemento recibido, como registrar información en consola o generar logs. No modifica el elemento que continúa en el flujo.
 
----
+Para transformar un Producto utilicé map, porque devuelve un nuevo elemento transformado dentro del flujo reactivo.
 
-## Fase 5 — Módulo de IA con LangChain4j
+##Fase 5 — Módulo de IA con LangChain4j
+**5.1** Pega tu interfaz AgroSmartAIService completa.
+package ec.edu.espe.agrosmart.ai;
 
-**5.1** Pega tu interfaz `AgroSmartAIService` completa.
+import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.service.V;
 
-```java
+public interface AgroSmartAIService {
 
-```
+    @SystemMessage("""
+            Eres un asistente experto en productos agrícolas.
+            Responde de forma clara y breve.
+            """)
+    String recomendar(
+            @UserMessage String consulta
+    );
 
-**5.2** ¿Qué hace `@V("producto")` y qué pasaría si lo quitaras dejando solo el
-parámetro?
+    @SystemMessage("""
+            Genera una descripción comercial para un producto agrícola.
+            """)
+    String describir(
+            @V("producto") String producto
+    );
+}
+**5.2** ¿Qué hace @V("producto")?
 
->
+@V("producto") asigna el nombre de la variable que LangChain4j utiliza dentro del prompt. Permite identificar el parámetro producto cuando se construye el mensaje enviado al modelo.
 
-**5.3** ¿En qué archivo y con qué líneas configuraste el modelo? ¿Por qué **no** hizo
-falta declarar un `@Bean`?
+Si elimino la anotación, LangChain4j puede no reconocer correctamente el nombre de la variable del prompt y no podría reemplazar el valor esperado.
 
->
+**5.3** ¿En qué archivo configuraste el modelo? ¿Por qué no hizo falta declarar un @Bean?
 
-**5.4** ¿Por qué la llamada a la IA también necesita `boundedElastic`, si no es una
-consulta a base de datos?
+Configuré las propiedades del modelo en application-prod.properties. No fue necesario declarar un @Bean porque LangChain4j permite crear servicios mediante su integración automática utilizando la configuración disponible en Spring Boot.
 
->
+**5.4** ¿Por qué la llamada a IA también necesita boundedElastic?
 
-**5.5** Si tu proveedor devolvió un error durante el examen, pega el mensaje real y la
-respuesta que produjo tu `onErrorResume`.
+La llamada a la IA realiza una operación externa de red que puede tardar y bloquear el hilo mientras espera la respuesta del proveedor. Por esa razón debe aislarse en un scheduler apropiado para evitar bloquear los hilos de procesamiento reactivo.
 
-```text
+**5.5** Si tu proveedor devolvió un error durante el examen...
+No se presentó error del proveedor durante las pruebas realizadas.
+##Fase 6 — API reactiva con WebFlux
+**6.1** Pega la salida real de tus cuatro curl.
+GET /api/productos
+200 OK
 
-```
+GET /api/productos/1
+200 OK
 
----
+GET /api/productos/999
+404 NOT FOUND
 
-## Fase 6 — API reactiva con WebFlux
+GET /api/productos/2
+200 OK
+**6.2** ¿Cómo lograste que el id inexistente responda 404 y no 500?
 
-**6.1** Pega la salida real de tus cuatro `curl`.
+Lo logré mediante ProductoNoEncontradoException y el manejo del flujo vacío en el controlador. Cuando no existe el producto solicitado, no retorno un error interno sino una respuesta HTTP 404 Not Found.
 
-```text
+**6.3** ¿Qué pasaría si devolvieras List<Producto> en lugar de Flux<Producto>?
 
-```
+La aplicación podría compilar, pero dejaría de ser completamente reactiva porque tendría que construir toda la lista antes de enviarla al cliente. Al usar Flux<Producto>, los elementos pueden enviarse mediante un flujo reactivo sin bloquear esperando toda la colección.
 
-**6.2** ¿Cómo lograste que el id inexistente responda **404** y no 500?
+##Fase 7 — Pruebas unitarias
+**7.1** Pega la salida real de tus pruebas.
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
 
->
+[INFO] BUILD SUCCESS
+**7.2** ¿Cuántos productos espera tu expectNextCount(...)?
 
-**6.3** ¿Qué pasaría si tu controlador devolviera `List<Producto>` en lugar de
-`Flux<Producto>`? ¿Seguiría compilando? ¿Seguiría siendo no bloqueante?
+Mi prueba utiliza expectNextCount(1) porque en ProductoServiceTest simulé un único producto mediante Mockito con repository.findAll(). La prueba verifica que el servicio transforma correctamente ese registro en un flujo reactivo.
 
->
+**7.3** ¿Por qué mockeaste ProductoRepository?
 
----
+Utilicé Mockito para simular ProductoRepository porque una prueba unitaria debe comprobar únicamente la lógica de ProductoService sin depender de una base de datos externa. Así la prueba es más rápida, aislada y repetible.
 
-## Fase 7 — Pruebas unitarias
+**7.4** ¿Qué demuestra assertNotSame que assertEquals no demuestra?
 
-**7.1** Pega la salida real de tus pruebas (`./mvnw test` o `./gradlew test`).
+assertNotSame verifica que dos referencias apuntan a objetos diferentes en memoria. Esto permite comprobar que realmente se creó una nueva instancia durante una copia defensiva.
 
-```text
+assertEquals solamente compara contenido y podría pasar aunque ambos objetos fueran la misma referencia.
 
-```
+**7.5** ¿Por qué una prueba de un Flux sin verifyComplete() no prueba nada?
 
-**7.2** ¿Cuántos productos espera tu `expectNextCount(...)` y por qué ese número
-concreto? Relaciónalo con tu semilla.
-
->
-
-**7.3** ¿Por qué mockeaste `ProductoRepository` en lugar de dejar que la prueba consulte
-PostgreSQL?
-
->
-
-**7.4** ¿Qué demuestra `assertNotSame` que `assertEquals` **no** demuestra en tu prueba
-de copia defensiva?
-
->
-
-**7.5** ¿Por qué una prueba de un `Flux` que no llama a `verifyComplete()` (o a
-`verify()`) no está probando nada?
-
->
-
----
-
+Porque sin verifyComplete() el StepVerifier no ejecuta completamente la verificación del flujo. No comprueba que el Flux terminó correctamente ni confirma que no quedaron errores pendientes.
 ## Fase 8 — Integración y cierre
 
 **8.1** Pega tu `git log --oneline --graph --all`.
 
 ```text
-
+*   e396375 Merge pull request #7 from eduardomontachana305-del/feature/pruebas-unitarias
+|\  
+| * ced51c4 test: agrega pruebas unitarias del servicio de productos
+|/  
+*   04fa4ab Merge pull request #6 from eduardomontachana305-del/feature/api-webflux
+|\  
+| * cbe8a58 feat: agrega controlador reactivo de productos
+|/  
+*   f772391 Merge pull request #5 from eduardomontachana305-del/feature/ia-langchain4j
+|\  
+| * 0e12619 feat: agrega interfaz de servicio IA con LangChain4j
+|/  
+*   606443f Merge pull request #4 from feature/servicio-reactivo
+|\  
+| * 3384156 feat: agrega servicio reactivo con aislamiento bloqueante
+|/  
+*   40391f1 Merge pull request #3 from feature/modelo-inmutable
+|\  
+| * a5ecd27 feat: agrega modelo inmutable de producto y logica funcional
+|/  
+*   b6395ca Merge pull request #2 from feature/persistencia-jpa
+|\  
+| * d2cecc7 feat: agrega entidad jpa de productos y siembra de datos
+|/  
+*   845c629 Merge pull request #1 from feature/config-perfiles
+|\  
+| * 69dea80 chore: configura perfil prod con postgresql y puerto propio
+|/  
+* e75d27a chore: inicializa proyecto agrosmart y registra identidad del examen
 ```
 
 **8.2** ¿Qué fase te tomó más tiempo del previsto y por qué?
 
->
+> La fase que más tiempo me tomó fue la Fase 3 del modelo inmutable porque tuve que separar la entidad JPA `ProductoEntity` del modelo de dominio `Producto`, además de implementar correctamente las copias defensivas para evitar modificaciones externas sobre la lista de correos.
 
-**8.3** Si tuvieras 30 minutos más, ¿qué mejorarías **primero** de tu entrega y por qué
-esa y no otra?
+**8.3** Si tuvieras 30 minutos más, ¿qué mejorarías primero de tu entrega y por qué esa y no otra?
 
->
+> Mejoraría primero las pruebas unitarias agregando más escenarios, como validaciones de productos inválidos y casos donde no exista un producto por id, porque permitiría aumentar la cobertura y comprobar mejor el comportamiento del servicio reactivo.
 
-**8.4** Declara honestamente qué herramientas consultaste durante el examen
-(documentación, apuntes, asistentes de IA) y para qué. **Esta declaración no descuenta
-puntaje**; su omisión o falsedad sí constituye falta de honestidad académica.
+**8.4** Declara honestamente qué herramientas consultaste durante el examen y para qué.
 
->
+> Durante el examen consulté documentación técnica de Spring Boot, Spring WebFlux, JPA/Hibernate y LangChain4j para verificar configuraciones y conceptos. También utilicé un asistente de IA como apoyo para revisar estructura de código y resolver errores de sintaxis, manteniendo la revisión y comprensión del código implementado.
